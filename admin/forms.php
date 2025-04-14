@@ -181,10 +181,45 @@ switch ($action) {
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         $searchTerm = $_GET['search'] ?? '';
 
-        if (!empty($searchTerm)) {
-            $result = Form::search($searchTerm, $page);
+        if ($isAdmin) {
+            // El administrador ve todos los formularios
+            if (!empty($searchTerm)) {
+                $result = Form::search($searchTerm, $page);
+            } else {
+                $result = Form::getAll($page);
+            }
         } else {
-            $result = Form::getAll($page);
+            // Los usuarios normales solo ven los formularios asignados
+            $userForms = Form::getActiveFormsForUser($userId);
+
+            // Filtrar por término de búsqueda si es necesario
+            if (!empty($searchTerm)) {
+                $filteredForms = [];
+                foreach ($userForms as $form) {
+                    if (stripos($form['titulo'], $searchTerm) !== false || stripos($form['descripcion'], $searchTerm) !== false) {
+                        $filteredForms[] = $form;
+                    }
+                }
+                $userForms = $filteredForms;
+            }
+
+            // Paginación manual
+            $perPage = 10;
+            $total = count($userForms);
+            $totalPages = ceil($total / $perPage);
+            $offset = ($page - 1) * $perPage;
+
+            $forms = array_slice($userForms, $offset, $perPage);
+
+            $result = [
+                'forms' => $forms,
+                'pagination' => [
+                    'total' => $total,
+                    'per_page' => $perPage,
+                    'current_page' => $page,
+                    'total_pages' => $totalPages
+                ]
+            ];
         }
 
         $forms = $result['forms'];
