@@ -94,6 +94,23 @@ if ($conn->query($sql) === TRUE) {
     die("Error al crear la tabla 'envios_formulario': " . $conn->error);
 }
 
+// Crear tabla de asignaciones de formularios a usuarios
+$sql = "CREATE TABLE IF NOT EXISTS asignaciones_formulario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT NOT NULL,
+    id_formulario INT NOT NULL,
+    fecha_asignacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_formulario) REFERENCES formularios(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_asignacion (id_usuario, id_formulario)
+) ENGINE=InnoDB";
+
+if ($conn->query($sql) === TRUE) {
+    echo "Tabla 'asignaciones_formulario' creada correctamente o ya existente<br>";
+} else {
+    die("Error al crear la tabla 'asignaciones_formulario': " . $conn->error);
+}
+
 // Crear usuario administrador por defecto si no existe
 $checkAdmin = "SELECT * FROM usuarios WHERE username = 'admin'";
 $result = $conn->query($checkAdmin);

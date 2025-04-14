@@ -440,13 +440,31 @@ class Form {
      * @return array Arreglo con los formularios activos
      */
     public static function getActiveFormsForUser($userId) {
-        $sql = "SELECT f.*,
-                (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
-                FROM formularios f
-                WHERE f.estado = 'activo'
-                ORDER BY f.id DESC";
+        // Verificar si existen asignaciones para el usuario
+        $sqlCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_usuario = ?";
+        $result = fetchOne($sqlCheck, [$userId]);
+        $hasAssignments = ($result && $result['total'] > 0);
 
-        $forms = fetchAll($sql);
+        if ($hasAssignments) {
+            // Si hay asignaciones, mostrar solo los formularios asignados
+            $sql = "SELECT f.*,
+                    (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
+                    FROM formularios f
+                    INNER JOIN asignaciones_formulario af ON f.id = af.id_formulario
+                    WHERE f.estado = 'activo' AND af.id_usuario = ?
+                    ORDER BY f.id DESC";
+
+            $forms = fetchAll($sql, [$userId]);
+        } else {
+            // Si no hay asignaciones, mostrar todos los formularios activos (comportamiento anterior)
+            $sql = "SELECT f.*,
+                    (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
+                    FROM formularios f
+                    WHERE f.estado = 'activo'
+                    ORDER BY f.id DESC";
+
+            $forms = fetchAll($sql);
+        }
 
         // Para cada formulario, obtener sus campos
         foreach ($forms as &$form) {
@@ -454,6 +472,73 @@ class Form {
         }
 
         return $forms;
+    }
+
+    /**
+     * Asigna un formulario a un usuario
+     *
+     * @param int $formId ID del formulario
+     * @param int $userId ID del usuario
+     * @return bool True si la asignación fue exitosa, false en caso contrario
+     */
+    public static function assignFormToUser($formId, $userId) {
+        // Verificar si el formulario existe
+        $form = self::getById($formId);
+        if (!$form) {
+            return false;
+        }
+
+        // Verificar si el usuario existe
+        $sql = "SELECT id FROM usuarios WHERE id = ? LIMIT 1";
+        $user = fetchOne($sql, [$userId]);
+        if (!$user) {
+            return false;
+        }
+
+        // Verificar si ya existe la asignación
+        $sqlCheck = "SELECT id FROM asignaciones_formulario WHERE id_usuario = ? AND id_formulario = ? LIMIT 1";
+        $existing = fetchOne($sqlCheck, [$userId, $formId]);
+
+        if ($existing) {
+            // La asignación ya existe, se considera exitoso
+            return true;
+        }
+
+        // Crear la asignación
+        $sql = "INSERT INTO asignaciones_formulario (id_usuario, id_formulario) VALUES (?, ?)";
+        $result = insert($sql, [$userId, $formId]);
+
+        return $result > 0;
+    }
+
+    /**
+     * Elimina la asignación de un formulario a un usuario
+     *
+     * @param int $formId ID del formulario
+     * @param int $userId ID del usuario
+     * @return bool True si la eliminación fue exitosa, false en caso contrario
+     */
+    public static function unassignFormFromUser($formId, $userId) {
+        $sql = "DELETE FROM asignaciones_formulario WHERE id_usuario = ? AND id_formulario = ?";
+        $result = update($sql, [$userId, $formId]);
+
+        return $result >= 0;
+    }
+
+    /**
+     * Obtiene los usuarios asignados a un formulario
+     *
+     * @param int $formId ID del formulario
+     * @return array Arreglo con los usuarios asignados
+     */
+    public static function getAssignedUsers($formId) {
+        $sql = "SELECT u.id, u.username, u.nombre_completo, u.estado
+                FROM usuarios u
+                INNER JOIN asignaciones_formulario af ON u.id = af.id_usuario
+                WHERE af.id_formulario = ?
+                ORDER BY u.nombre_completo";
+
+        return fetchAll($sql, [$formId]);
     }
 }
 ?>

@@ -25,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setAlert('danger', 'Error de validación del formulario');
         redirect(APP_URL . '/admin/forms.php');
     }
-    
+
     // Determinar la acción a realizar
     $formAction = $_POST['form_action'] ?? '';
-    
+
     switch ($formAction) {
         case 'create':
             // Crear nuevo formulario
@@ -37,16 +37,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'descripcion' => sanitize($_POST['descripcion'] ?? ''),
                 'estado' => sanitize($_POST['estado'] ?? 'activo')
             ];
-            
+
             // Validar datos
             if (empty($formData['titulo'])) {
                 setAlert('danger', 'El título del formulario es obligatorio');
                 redirect(APP_URL . '/admin/forms.php?action=create');
             }
-            
+
             // Crear formulario
             $formId = Form::create($formData);
-            
+
             if ($formId) {
                 // Si se creó el formulario, añadir los campos
                 if (isset($_POST['tipo_campo']) && is_array($_POST['tipo_campo'])) {
@@ -58,11 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'requerido' => isset($_POST['requerido'][$index]) ? 1 : 0,
                             'orden' => $index + 1
                         ];
-                        
+
                         Form::addField($fieldData);
                     }
                 }
-                
+
                 setAlert('success', 'Formulario creado correctamente');
                 redirect(APP_URL . '/admin/forms.php');
             } else {
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect(APP_URL . '/admin/forms.php?action=create');
             }
             break;
-            
+
         case 'update':
             // Actualizar formulario existente
             $formId = (int)($_POST['form_id'] ?? 0);
@@ -79,16 +79,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'descripcion' => sanitize($_POST['descripcion'] ?? ''),
                 'estado' => sanitize($_POST['estado'] ?? 'activo')
             ];
-            
+
             // Validar datos
             if (empty($formData['titulo'])) {
                 setAlert('danger', 'El título del formulario es obligatorio');
                 redirect(APP_URL . '/admin/forms.php?action=edit&id=' . $formId);
             }
-            
+
             // Actualizar formulario
             $result = Form::update($formId, $formData);
-            
+
             if ($result) {
                 setAlert('success', 'Formulario actualizado correctamente');
                 redirect(APP_URL . '/admin/forms.php');
@@ -97,37 +97,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect(APP_URL . '/admin/forms.php?action=edit&id=' . $formId);
             }
             break;
-            
+
         case 'delete':
             // Eliminar formulario
             $formId = (int)($_POST['form_id'] ?? 0);
-            
+
             // Eliminar formulario
             $result = Form::delete($formId);
-            
+
             if ($result) {
                 setAlert('success', 'Formulario eliminado correctamente');
             } else {
                 setAlert('danger', 'Error al eliminar el formulario');
             }
-            
+
             redirect(APP_URL . '/admin/forms.php');
             break;
-            
+
         case 'change_status':
             // Cambiar estado
             $formId = (int)($_POST['form_id'] ?? 0);
             $newStatus = sanitize($_POST['estado'] ?? 'activo');
-            
+
             // Cambiar estado
             $result = Form::changeStatus($formId, $newStatus);
-            
+
             if ($result) {
                 setAlert('success', 'Estado del formulario cambiado correctamente');
             } else {
                 setAlert('danger', 'Error al cambiar el estado del formulario');
             }
-            
+
             redirect(APP_URL . '/admin/forms.php');
             break;
     }
@@ -143,44 +143,44 @@ switch ($action) {
     case 'create':
         // Mostrar formulario de creación
         break;
-        
+
     case 'edit':
         // Obtener datos del formulario a editar
         $form = Form::getById($formId);
-        
+
         if (!$form) {
             setAlert('danger', 'Formulario no encontrado');
             redirect(APP_URL . '/admin/forms.php');
         }
-        
+
         // Obtener campos del formulario
         $fields = Form::getFields($formId);
         break;
-        
+
     case 'fields':
         // Obtener datos del formulario para gestionar campos
         $form = Form::getById($formId);
-        
+
         if (!$form) {
             setAlert('danger', 'Formulario no encontrado');
             redirect(APP_URL . '/admin/forms.php');
         }
-        
+
         // Obtener campos del formulario
         $fields = Form::getFields($formId);
         break;
-        
+
     default:
         // Listar formularios
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         $searchTerm = $_GET['search'] ?? '';
-        
+
         if (!empty($searchTerm)) {
             $result = Form::search($searchTerm, $page);
         } else {
             $result = Form::getAll($page);
         }
-        
+
         $forms = $result['forms'];
         $pagination = $result['pagination'];
         break;
@@ -195,13 +195,13 @@ $alert = getAlert();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formularios - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
+
     <!-- Estilos personalizados -->
     <link href="<?php echo APP_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
@@ -233,7 +233,7 @@ $alert = getAlert();
             </div>
         </div>
     </nav>
-    
+
     <!-- Contenido principal -->
     <div class="container-fluid">
         <div class="row">
@@ -241,7 +241,7 @@ $alert = getAlert();
             <div class="col-md-3 col-lg-2 sidebar">
                 <?php echo generateMenu('forms'); ?>
             </div>
-            
+
             <!-- Contenido -->
             <div class="col-md-9 col-lg-10 ms-sm-auto main-content">
                 <?php if ($alert): ?>
@@ -250,7 +250,7 @@ $alert = getAlert();
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php if ($action === 'create'): ?>
                 <!-- Formulario de creación de formulario -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -261,23 +261,23 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <div class="card">
                     <div class="card-body">
                         <form method="POST" action="<?php echo APP_URL; ?>/admin/forms.php">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             <input type="hidden" name="form_action" value="create">
-                            
+
                             <div class="mb-3">
                                 <label for="titulo" class="form-label">Título del formulario</label>
                                 <input type="text" class="form-control" id="titulo" name="titulo" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="descripcion" class="form-label">Descripción</label>
                                 <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="estado" class="form-label">Estado</label>
                                 <select class="form-select" id="estado" name="estado">
@@ -285,9 +285,9 @@ $alert = getAlert();
                                     <option value="inactivo">Inactivo</option>
                                 </select>
                             </div>
-                            
+
                             <h4 class="mt-4 mb-3">Campos del formulario</h4>
-                            
+
                             <div id="fieldContainer">
                                 <!-- Campo 1 -->
                                 <div class="card mb-3 form-field-card">
@@ -333,13 +333,13 @@ $alert = getAlert();
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <button type="button" id="addFieldButton" class="btn btn-outline-primary">
                                     <i class="material-icons">add</i> Añadir campo
                                 </button>
                             </div>
-                            
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="material-icons">save</i> Guardar formulario
@@ -348,7 +348,7 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+
                 <!-- Template para nuevos campos -->
                 <template id="fieldTemplate">
                     <div class="card mb-3 form-field-card">
@@ -394,7 +394,7 @@ $alert = getAlert();
                         </div>
                     </div>
                 </template>
-                
+
                 <?php elseif ($action === 'edit' && $form): ?>
                 <!-- Formulario de edición de formulario -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -405,24 +405,24 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <div class="card">
                     <div class="card-body">
                         <form method="POST" action="<?php echo APP_URL; ?>/admin/forms.php">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             <input type="hidden" name="form_action" value="update">
                             <input type="hidden" name="form_id" value="<?php echo $form['id']; ?>">
-                            
+
                             <div class="mb-3">
                                 <label for="titulo" class="form-label">Título del formulario</label>
                                 <input type="text" class="form-control" id="titulo" name="titulo" value="<?php echo $form['titulo']; ?>" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="descripcion" class="form-label">Descripción</label>
                                 <textarea class="form-control" id="descripcion" name="descripcion" rows="3"><?php echo $form['descripcion']; ?></textarea>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="estado" class="form-label">Estado</label>
                                 <select class="form-select" id="estado" name="estado">
@@ -430,7 +430,7 @@ $alert = getAlert();
                                     <option value="inactivo" <?php echo ($form['estado'] === 'inactivo') ? 'selected' : ''; ?>>Inactivo</option>
                                 </select>
                             </div>
-                            
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="material-icons">save</i> Guardar cambios
@@ -438,11 +438,14 @@ $alert = getAlert();
                                 <a href="<?php echo APP_URL; ?>/admin/form_fields.php?form_id=<?php echo $form['id']; ?>" class="btn btn-outline-primary">
                                     <i class="material-icons">list</i> Gestionar campos
                                 </a>
+                                <a href="<?php echo APP_URL; ?>/admin/form_assignments.php?form_id=<?php echo $form['id']; ?>" class="btn btn-outline-info">
+                                    <i class="material-icons">people</i> Asignar usuarios
+                                </a>
                             </div>
                         </form>
                     </div>
                 </div>
-                
+
                 <?php else: ?>
                 <!-- Lista de formularios -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -453,7 +456,7 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <!-- Buscador -->
                 <div class="card mb-4">
                     <div class="card-body">
@@ -469,7 +472,7 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+
                 <!-- Tabla de formularios -->
                 <div class="card">
                     <div class="card-body">
@@ -506,10 +509,13 @@ $alert = getAlert();
                                                 <a href="<?php echo APP_URL; ?>/admin/form_fields.php?form_id=<?php echo $form['id']; ?>" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Gestionar campos">
                                                     <i class="material-icons">list</i>
                                                 </a>
+                                                <a href="<?php echo APP_URL; ?>/admin/form_assignments.php?form_id=<?php echo $form['id']; ?>" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Asignar usuarios">
+                                                    <i class="material-icons">people</i>
+                                                </a>
                                                 <button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-bs-toggle="modal" data-bs-target="#deleteModal<?php echo $form['id']; ?>" title="Eliminar">
                                                     <i class="material-icons">delete</i>
                                                 </button>
-                                                
+
                                                 <!-- Cambiar estado -->
                                                 <form method="POST" action="<?php echo APP_URL; ?>/admin/forms.php" class="d-inline">
                                                     <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
@@ -521,7 +527,7 @@ $alert = getAlert();
                                                     </button>
                                                 </form>
                                             </div>
-                                            
+
                                             <!-- Modal de confirmación de eliminación -->
                                             <div class="modal fade" id="deleteModal<?php echo $form['id']; ?>" tabindex="-1" aria-labelledby="deleteModalLabel<?php echo $form['id']; ?>" aria-hidden="true">
                                                 <div class="modal-dialog">
@@ -551,7 +557,7 @@ $alert = getAlert();
                                 </tbody>
                             </table>
                         </div>
-                        
+
                         <!-- Paginación -->
                         <?php if ($pagination['total_pages'] > 1): ?>
                         <div class="mt-4">
@@ -566,7 +572,7 @@ $alert = getAlert();
                             ?>
                         </div>
                         <?php endif; ?>
-                        
+
                         <?php else: ?>
                         <p class="text-center text-muted">No se encontraron formularios</p>
                         <?php endif; ?>
@@ -576,10 +582,10 @@ $alert = getAlert();
             </div>
         </div>
     </div>
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- JavaScript personalizado -->
     <script src="<?php echo APP_URL; ?>/assets/js/script.js"></script>
 </body>

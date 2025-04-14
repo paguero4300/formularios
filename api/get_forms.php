@@ -37,28 +37,37 @@ if (!$user) {
     jsonResponse(['error' => 'Usuario no encontrado o inactivo'], 404);
 }
 
-// Obtener formularios activos
-$sql = "SELECT f.id, f.titulo, f.descripcion
-        FROM formularios f
-        WHERE f.estado = 'activo'
-        ORDER BY f.id DESC";
+// Obtener formularios activos para el usuario
+$forms = Form::getActiveFormsForUser($userId);
 
-$forms = fetchAll($sql);
+// Simplificar la respuesta para la API
+$simplifiedForms = [];
+foreach ($forms as $form) {
+    $simplifiedForm = [
+        'id' => $form['id'],
+        'titulo' => $form['titulo'],
+        'descripcion' => $form['descripcion'],
+        'campos' => []
+    ];
 
-// Para cada formulario, obtener sus campos
-foreach ($forms as &$form) {
-    $sql = "SELECT id, tipo_campo, etiqueta, requerido, orden
-            FROM campos_formulario
-            WHERE id_formulario = ?
-            ORDER BY orden ASC";
-    
-    $form['campos'] = fetchAll($sql, [$form['id']]);
+    // Incluir solo los campos necesarios
+    foreach ($form['campos'] as $campo) {
+        $simplifiedForm['campos'][] = [
+            'id' => $campo['id'],
+            'tipo_campo' => $campo['tipo_campo'],
+            'etiqueta' => $campo['etiqueta'],
+            'requerido' => $campo['requerido'],
+            'orden' => $campo['orden']
+        ];
+    }
+
+    $simplifiedForms[] = $simplifiedForm;
 }
 
 // Preparar respuesta
 $response = [
     'success' => true,
-    'forms' => $forms
+    'forms' => $simplifiedForms
 ];
 
 // Registrar actividad
