@@ -546,23 +546,13 @@ class Form {
      * @return array Arreglo con los formularios activos
      */
     public static function getActiveFormsForUser($userId) {
-        // Verificar si existen asignaciones para el usuario
-        $sqlCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_usuario = ?";
-        $result = fetchOne($sqlCheck, [$userId]);
-        $hasAssignments = ($result && $result['total'] > 0);
+        // Verificar si el usuario es administrador (username = 'admin')
+        $sqlAdmin = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+        $userResult = fetchOne($sqlAdmin, [$userId]);
+        $isAdmin = ($userResult && $userResult['username'] === 'admin');
 
-        if ($hasAssignments) {
-            // Si hay asignaciones, mostrar solo los formularios asignados
-            $sql = "SELECT f.*,
-                    (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
-                    FROM formularios f
-                    INNER JOIN asignaciones_formulario af ON f.id = af.id_formulario
-                    WHERE f.estado = 'activo' AND af.id_usuario = ?
-                    ORDER BY f.id DESC";
-
-            $forms = fetchAll($sql, [$userId]);
-        } else {
-            // Si no hay asignaciones, mostrar todos los formularios activos (comportamiento anterior)
+        // Si es administrador, mostrar todos los formularios activos
+        if ($isAdmin) {
             $sql = "SELECT f.*,
                     (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
                     FROM formularios f
@@ -570,6 +560,37 @@ class Form {
                     ORDER BY f.id DESC";
 
             $forms = fetchAll($sql);
+        } else {
+            // Verificar si existen asignaciones para el usuario
+            $sqlCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_usuario = ?";
+            $result = fetchOne($sqlCheck, [$userId]);
+            $hasAssignments = ($result && $result['total'] > 0);
+
+            // Verificar si existen asignaciones en general
+            $sqlGlobalCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario";
+            $globalResult = fetchOne($sqlGlobalCheck);
+            $hasGlobalAssignments = ($globalResult && $globalResult['total'] > 0);
+
+            if ($hasGlobalAssignments) {
+                // Si hay asignaciones en el sistema, mostrar solo los formularios asignados al usuario
+                $sql = "SELECT f.*,
+                        (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
+                        FROM formularios f
+                        INNER JOIN asignaciones_formulario af ON f.id = af.id_formulario
+                        WHERE f.estado = 'activo' AND af.id_usuario = ?
+                        ORDER BY f.id DESC";
+
+                $forms = fetchAll($sql, [$userId]);
+            } else {
+                // Si no hay asignaciones en el sistema, mostrar todos los formularios activos
+                $sql = "SELECT f.*,
+                        (SELECT COUNT(*) FROM campos_formulario WHERE id_formulario = f.id) as total_campos
+                        FROM formularios f
+                        WHERE f.estado = 'activo'
+                        ORDER BY f.id DESC";
+
+                $forms = fetchAll($sql);
+            }
         }
 
         // Para cada formulario, obtener sus campos
