@@ -26,24 +26,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setAlert('danger', 'Error de validación del formulario');
         redirect(APP_URL . '/admin/submissions.php');
     }
-    
+
     // Determinar la acción a realizar
     $formAction = $_POST['form_action'] ?? '';
-    
+
     switch ($formAction) {
         case 'delete':
             // Eliminar envío
             $submissionId = (int)($_POST['submission_id'] ?? 0);
-            
+
             // Eliminar envío
             $result = Form::deleteSubmission($submissionId);
-            
+
             if ($result) {
                 setAlert('success', 'Envío eliminado correctamente');
             } else {
                 setAlert('danger', 'Error al eliminar el envío');
             }
-            
+
             redirect(APP_URL . '/admin/submissions.php');
             break;
     }
@@ -60,65 +60,58 @@ switch ($action) {
     case 'view':
         // Obtener datos del envío
         $submission = Form::getSubmissionById($submissionId);
-        
+
         if (!$submission) {
             setAlert('danger', 'Envío no encontrado');
             redirect(APP_URL . '/admin/submissions.php');
         }
-        
+
+        // Verificar si el usuario tiene permiso para ver este envío
+        $userId = Auth::id();
+        $userResult = fetchOne("SELECT username FROM usuarios WHERE id = ? LIMIT 1", [$userId]);
+        $isAdmin = ($userResult && $userResult['username'] === 'admin');
+
+        if (!$isAdmin) {
+            // Verificar si el formulario tiene asignaciones
+            $sqlFormCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_formulario = ?";
+            $formCheckResult = fetchOne($sqlFormCheck, [$submission['id_formulario']]);
+            $formHasAssignments = ($formCheckResult && $formCheckResult['total'] > 0);
+
+            if ($formHasAssignments) {
+                // Verificar si el usuario tiene acceso a este formulario
+                $sqlUserAccess = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_formulario = ? AND id_usuario = ?";
+                $userAccessResult = fetchOne($sqlUserAccess, [$submission['id_formulario'], $userId]);
+                $userHasAccess = ($userAccessResult && $userAccessResult['total'] > 0);
+
+                if (!$userHasAccess) {
+                    setAlert('danger', 'No tienes permiso para ver este envío');
+                    redirect(APP_URL . '/admin/submissions.php');
+                }
+            }
+        }
+
         // Obtener campos del formulario
         $fields = Form::getFields($submission['id_formulario']);
         break;
-        
+
     default:
         // Listar envíos
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        
-        // Si se especificó un formulario, mostrar solo los envíos de ese formulario
+        $userId = Auth::id(); // Obtener ID del usuario actual
+
+        // Obtener envíos según los permisos del usuario
+        $result = Form::getSubmissionsForUser($userId, $page, 10, $formId > 0 ? $formId : null);
+        $submissions = $result['submissions'];
+        $pagination = $result['pagination'];
+
+        // Si se especificó un formulario, obtener sus datos
         if ($formId > 0) {
             $form = Form::getById($formId);
-            
+
             if (!$form) {
                 setAlert('danger', 'Formulario no encontrado');
                 redirect(APP_URL . '/admin/submissions.php');
             }
-            
-            $result = Form::getSubmissions($formId, $page);
-            $submissions = $result['submissions'];
-            $pagination = $result['pagination'];
-        } else {
-            // Mostrar todos los envíos
-            $conn = getDBConnection();
-            
-            // Obtener total de registros
-            $sqlCount = "SELECT COUNT(*) as total FROM envios_formulario";
-            $resultCount = $conn->query($sqlCount);
-            $total = $resultCount->fetch_assoc()['total'];
-            
-            // Calcular paginación
-            $perPage = 10;
-            $totalPages = ceil($total / $perPage);
-            $offset = ($page - 1) * $perPage;
-            
-            // Obtener envíos
-            $sql = "SELECT ef.*, u.username, u.nombre_completo, f.titulo as formulario_titulo
-                    FROM envios_formulario ef
-                    JOIN usuarios u ON ef.id_usuario = u.id
-                    JOIN formularios f ON ef.id_formulario = f.id
-                    ORDER BY ef.fecha_envio DESC
-                    LIMIT $perPage OFFSET $offset";
-            
-            $result = $conn->query($sql);
-            $submissions = $result->fetch_all(MYSQLI_ASSOC);
-            
-            $pagination = [
-                'total' => $total,
-                'per_page' => $perPage,
-                'current_page' => $page,
-                'total_pages' => $totalPages
-            ];
-            
-            $conn->close();
         }
         break;
 }
@@ -132,13 +125,13 @@ $alert = getAlert();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Envíos - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
+
     <!-- Estilos personalizados -->
     <link href="<?php echo APP_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
@@ -170,7 +163,7 @@ $alert = getAlert();
             </div>
         </div>
     </nav>
-    
+
     <!-- Contenido principal -->
     <div class="container-fluid">
         <div class="row">
@@ -178,7 +171,7 @@ $alert = getAlert();
             <div class="col-md-3 col-lg-2 sidebar">
                 <?php echo generateMenu('submissions'); ?>
             </div>
-            
+
             <!-- Contenido -->
             <div class="col-md-9 col-lg-10 ms-sm-auto main-content">
                 <?php if ($alert): ?>
@@ -187,7 +180,7 @@ $alert = getAlert();
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php if ($action === 'view' && $submission): ?>
                 <!-- Vista detallada de un envío -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -198,7 +191,7 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">Información general</h5>
@@ -216,7 +209,7 @@ $alert = getAlert();
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">Datos del formulario</h5>
@@ -225,7 +218,7 @@ $alert = getAlert();
                         <?php
                         // Decodificar datos JSON
                         $datos = json_decode($submission['datos'], true);
-                        
+
                         if ($datos && count($fields) > 0):
                         ?>
                         <div class="table-responsive">
@@ -243,12 +236,12 @@ $alert = getAlert();
                                         <td>
                                             <?php
                                             $fieldValue = $datos[$field['id']] ?? '';
-                                            
+
                                             switch ($field['tipo_campo']) {
                                                 case 'fecha_hora':
                                                     echo formatDate($fieldValue);
                                                     break;
-                                                    
+
                                                 case 'ubicacion_gps':
                                                     if (!empty($fieldValue)) {
                                                         $coords = explode(',', $fieldValue);
@@ -260,7 +253,7 @@ $alert = getAlert();
                                                         }
                                                     }
                                                     break;
-                                                    
+
                                                 default:
                                                     echo nl2br(htmlspecialchars($fieldValue));
                                                     break;
@@ -282,7 +275,7 @@ $alert = getAlert();
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Modal de confirmación de eliminación -->
                 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
                     <div class="modal-dialog">
@@ -306,7 +299,7 @@ $alert = getAlert();
                         </div>
                     </div>
                 </div>
-                
+
                 <?php else: ?>
                 <!-- Lista de envíos -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -325,7 +318,7 @@ $alert = getAlert();
                         <?php endif; ?>
                     </div>
                 </div>
-                
+
                 <!-- Tabla de envíos -->
                 <div class="card">
                     <div class="card-body">
@@ -357,7 +350,7 @@ $alert = getAlert();
                                                     <i class="material-icons">delete</i>
                                                 </button>
                                             </div>
-                                            
+
                                             <!-- Modal de confirmación de eliminación -->
                                             <div class="modal fade" id="deleteModal<?php echo $submission['id']; ?>" tabindex="-1" aria-labelledby="deleteModalLabel<?php echo $submission['id']; ?>" aria-hidden="true">
                                                 <div class="modal-dialog">
@@ -387,7 +380,7 @@ $alert = getAlert();
                                 </tbody>
                             </table>
                         </div>
-                        
+
                         <!-- Paginación -->
                         <?php if ($pagination['total_pages'] > 1): ?>
                         <div class="mt-4">
@@ -402,7 +395,7 @@ $alert = getAlert();
                             ?>
                         </div>
                         <?php endif; ?>
-                        
+
                         <?php else: ?>
                         <p class="text-center text-muted">No se encontraron envíos</p>
                         <?php endif; ?>
@@ -412,10 +405,10 @@ $alert = getAlert();
             </div>
         </div>
     </div>
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- JavaScript personalizado -->
     <script src="<?php echo APP_URL; ?>/assets/js/script.js"></script>
 </body>

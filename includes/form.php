@@ -372,6 +372,112 @@ class Form {
     }
 
     /**
+     * Obtiene los envíos de formularios según los permisos del usuario
+     *
+     * @param int $userId ID del usuario
+     * @param int $page Número de página
+     * @param int $perPage Registros por página
+     * @param int $formId ID del formulario (opcional, para filtrar por formulario)
+     * @return array Arreglo con los envíos y metadatos de paginación
+     */
+    public static function getSubmissionsForUser($userId, $page = 1, $perPage = 10, $formId = null) {
+        // Calcular offset para paginación
+        $offset = ($page - 1) * $perPage;
+
+        // Verificar si el usuario es administrador (username = 'admin')
+        $sqlAdmin = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+        $userResult = fetchOne($sqlAdmin, [$userId]);
+        $isAdmin = ($userResult && $userResult['username'] === 'admin');
+
+        // Verificar si existen asignaciones para el usuario
+        $sqlCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_usuario = ?";
+        $result = fetchOne($sqlCheck, [$userId]);
+        $hasAssignments = ($result && $result['total'] > 0);
+
+        // Preparar condiciones de la consulta
+        $conditions = [];
+        $params = [];
+
+        // Si no es admin y tiene asignaciones, filtrar por formularios asignados
+        if (!$isAdmin && $hasAssignments) {
+            $conditions[] = "ef.id_formulario IN (SELECT id_formulario FROM asignaciones_formulario WHERE id_usuario = ?)";
+            $params[] = $userId;
+        }
+
+        // Si se especificó un formulario, filtrar por ese formulario
+        if ($formId) {
+            $conditions[] = "ef.id_formulario = ?";
+            $params[] = $formId;
+
+            // Si no es admin, verificar que tenga acceso a este formulario
+            if (!$isAdmin) {
+                // Verificar si el formulario está asignado al usuario o si no hay asignaciones
+                $sqlFormCheck = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_formulario = ?";
+                $formCheckResult = fetchOne($sqlFormCheck, [$formId]);
+                $formHasAssignments = ($formCheckResult && $formCheckResult['total'] > 0);
+
+                if ($formHasAssignments) {
+                    $sqlUserAccess = "SELECT COUNT(*) as total FROM asignaciones_formulario WHERE id_formulario = ? AND id_usuario = ?";
+                    $userAccessResult = fetchOne($sqlUserAccess, [$formId, $userId]);
+                    $userHasAccess = ($userAccessResult && $userAccessResult['total'] > 0);
+
+                    if (!$userHasAccess) {
+                        // El usuario no tiene acceso a este formulario
+                        return [
+                            'submissions' => [],
+                            'pagination' => [
+                                'total' => 0,
+                                'per_page' => $perPage,
+                                'current_page' => $page,
+                                'total_pages' => 0
+                            ]
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Construir la cláusula WHERE
+        $whereClause = '';
+        if (!empty($conditions)) {
+            $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+        }
+
+        // Obtener total de registros
+        $sqlCount = "SELECT COUNT(*) as total FROM envios_formulario ef $whereClause";
+        $result = fetchOne($sqlCount, $params);
+        $total = $result['total'];
+
+        // Calcular total de páginas
+        $totalPages = ceil($total / $perPage);
+
+        // Obtener envíos para la página actual
+        $sql = "SELECT ef.*, u.username, u.nombre_completo, f.titulo as formulario_titulo
+                FROM envios_formulario ef
+                JOIN usuarios u ON ef.id_usuario = u.id
+                JOIN formularios f ON ef.id_formulario = f.id
+                $whereClause
+                ORDER BY ef.fecha_envio DESC
+                LIMIT ? OFFSET ?";
+
+        // Añadir parámetros de paginación
+        $params[] = $perPage;
+        $params[] = $offset;
+
+        $submissions = fetchAll($sql, $params);
+
+        return [
+            'submissions' => $submissions,
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'total_pages' => $totalPages
+            ]
+        ];
+    }
+
+    /**
      * Obtiene un envío de formulario por su ID
      *
      * @param int $submissionId ID del envío
