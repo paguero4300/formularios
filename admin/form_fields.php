@@ -14,6 +14,12 @@ require_once '../includes/form.php';
 // Verificar autenticación
 requireAuth();
 
+// Verificar si el usuario es administrador
+$userId = Auth::id();
+$sqlAdmin = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+$userResult = fetchOne($sqlAdmin, [$userId]);
+$isAdmin = ($userResult && $userResult['username'] === 'admin');
+
 // Obtener ID del formulario
 $formId = isset($_GET['form_id']) ? (int)$_GET['form_id'] : 0;
 
@@ -32,10 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setAlert('danger', 'Error de validación del formulario');
         redirect(APP_URL . '/admin/form_fields.php?form_id=' . $formId);
     }
-    
+
     // Determinar la acción a realizar
     $formAction = $_POST['form_action'] ?? '';
-    
+
     switch ($formAction) {
         case 'add_field':
             // Añadir nuevo campo
@@ -46,25 +52,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'requerido' => isset($_POST['requerido']) ? 1 : 0,
                 'orden' => (int)($_POST['orden'] ?? 0)
             ];
-            
+
             // Validar datos
             if (empty($fieldData['tipo_campo']) || empty($fieldData['etiqueta'])) {
                 setAlert('danger', 'Todos los campos son obligatorios');
                 redirect(APP_URL . '/admin/form_fields.php?form_id=' . $formId);
             }
-            
+
             // Añadir campo
             $result = Form::addField($fieldData);
-            
+
             if ($result) {
                 setAlert('success', 'Campo añadido correctamente');
             } else {
                 setAlert('danger', 'Error al añadir el campo');
             }
-            
+
             redirect(APP_URL . '/admin/form_fields.php?form_id=' . $formId);
             break;
-            
+
         case 'update_field':
             // Actualizar campo existente
             $fieldId = (int)($_POST['field_id'] ?? 0);
@@ -74,38 +80,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'requerido' => isset($_POST['requerido']) ? 1 : 0,
                 'orden' => (int)($_POST['orden'] ?? 0)
             ];
-            
+
             // Validar datos
             if (empty($fieldData['tipo_campo']) || empty($fieldData['etiqueta'])) {
                 setAlert('danger', 'Todos los campos son obligatorios');
                 redirect(APP_URL . '/admin/form_fields.php?form_id=' . $formId);
             }
-            
+
             // Actualizar campo
             $result = Form::updateField($fieldId, $fieldData);
-            
+
             if ($result) {
                 setAlert('success', 'Campo actualizado correctamente');
             } else {
                 setAlert('danger', 'Error al actualizar el campo');
             }
-            
+
             redirect(APP_URL . '/admin/form_fields.php?form_id=' . $formId);
             break;
-            
+
         case 'delete_field':
             // Eliminar campo
             $fieldId = (int)($_POST['field_id'] ?? 0);
-            
+
             // Eliminar campo
             $result = Form::deleteField($fieldId);
-            
+
             if ($result) {
                 setAlert('success', 'Campo eliminado correctamente');
             } else {
                 setAlert('danger', 'Error al eliminar el campo');
             }
-            
+
             redirect(APP_URL . '/admin/form_fields.php?form_id=' . $formId);
             break;
     }
@@ -123,13 +129,13 @@ $alert = getAlert();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campos del formulario - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
+
     <!-- Estilos personalizados -->
     <link href="<?php echo APP_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
@@ -161,7 +167,7 @@ $alert = getAlert();
             </div>
         </div>
     </nav>
-    
+
     <!-- Contenido principal -->
     <div class="container-fluid">
         <div class="row">
@@ -169,7 +175,7 @@ $alert = getAlert();
             <div class="col-md-3 col-lg-2 sidebar">
                 <?php echo generateMenu('forms'); ?>
             </div>
-            
+
             <!-- Contenido -->
             <div class="col-md-9 col-lg-10 ms-sm-auto main-content">
                 <?php if ($alert): ?>
@@ -178,7 +184,7 @@ $alert = getAlert();
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 <?php endif; ?>
-                
+
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Campos del formulario: <?php echo $form['titulo']; ?></h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
@@ -187,7 +193,8 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
+                <?php if ($isAdmin): ?>
                 <!-- Formulario para añadir campo -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -197,7 +204,7 @@ $alert = getAlert();
                         <form method="POST" action="<?php echo APP_URL; ?>/admin/form_fields.php?form_id=<?php echo $formId; ?>" class="row g-3">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             <input type="hidden" name="form_action" value="add_field">
-                            
+
                             <div class="col-md-4">
                                 <label for="tipo_campo" class="form-label">Tipo de campo</label>
                                 <select class="form-select" id="tipo_campo" name="tipo_campo" required>
@@ -207,17 +214,17 @@ $alert = getAlert();
                                     <option value="comentario">Comentario</option>
                                 </select>
                             </div>
-                            
+
                             <div class="col-md-4">
                                 <label for="etiqueta" class="form-label">Etiqueta</label>
                                 <input type="text" class="form-control" id="etiqueta" name="etiqueta" required>
                             </div>
-                            
+
                             <div class="col-md-2">
                                 <label for="orden" class="form-label">Orden</label>
                                 <input type="number" class="form-control" id="orden" name="orden" value="<?php echo count($fields) + 1; ?>" min="1">
                             </div>
-                            
+
                             <div class="col-md-2">
                                 <label class="form-check-label d-block">&nbsp;</label>
                                 <div class="form-check">
@@ -227,7 +234,7 @@ $alert = getAlert();
                                     </label>
                                 </div>
                             </div>
-                            
+
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="material-icons">add</i> Añadir campo
@@ -236,7 +243,8 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+                <?php endif; ?>
+
                 <!-- Lista de campos -->
                 <div class="card">
                     <div class="card-header">
@@ -289,14 +297,20 @@ $alert = getAlert();
                                         <td><?php echo $field['orden']; ?></td>
                                         <td>
                                             <div class="btn-group" role="group">
+                                                <?php if ($isAdmin): ?>
                                                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal<?php echo $field['id']; ?>">
                                                     <i class="material-icons">edit</i>
                                                 </button>
                                                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal<?php echo $field['id']; ?>">
                                                     <i class="material-icons">delete</i>
                                                 </button>
+                                                <?php else: ?>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                                                    <i class="material-icons">visibility</i>
+                                                </button>
+                                                <?php endif; ?>
                                             </div>
-                                            
+
                                             <!-- Modal de edición -->
                                             <div class="modal fade" id="editModal<?php echo $field['id']; ?>" tabindex="-1" aria-labelledby="editModalLabel<?php echo $field['id']; ?>" aria-hidden="true">
                                                 <div class="modal-dialog">
@@ -310,7 +324,7 @@ $alert = getAlert();
                                                                 <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                                                                 <input type="hidden" name="form_action" value="update_field">
                                                                 <input type="hidden" name="field_id" value="<?php echo $field['id']; ?>">
-                                                                
+
                                                                 <div class="mb-3">
                                                                     <label for="tipo_campo_<?php echo $field['id']; ?>" class="form-label">Tipo de campo</label>
                                                                     <select class="form-select" id="tipo_campo_<?php echo $field['id']; ?>" name="tipo_campo" required>
@@ -320,22 +334,22 @@ $alert = getAlert();
                                                                         <option value="comentario" <?php echo ($field['tipo_campo'] === 'comentario') ? 'selected' : ''; ?>>Comentario</option>
                                                                     </select>
                                                                 </div>
-                                                                
+
                                                                 <div class="mb-3">
                                                                     <label for="etiqueta_<?php echo $field['id']; ?>" class="form-label">Etiqueta</label>
                                                                     <input type="text" class="form-control" id="etiqueta_<?php echo $field['id']; ?>" name="etiqueta" value="<?php echo $field['etiqueta']; ?>" required>
                                                                 </div>
-                                                                
+
                                                                 <div class="mb-3">
                                                                     <label for="orden_<?php echo $field['id']; ?>" class="form-label">Orden</label>
                                                                     <input type="number" class="form-control" id="orden_<?php echo $field['id']; ?>" name="orden" value="<?php echo $field['orden']; ?>" min="1">
                                                                 </div>
-                                                                
+
                                                                 <div class="mb-3 form-check">
                                                                     <input type="checkbox" class="form-check-input" id="requerido_<?php echo $field['id']; ?>" name="requerido" <?php echo ($field['requerido']) ? 'checked' : ''; ?>>
                                                                     <label class="form-check-label" for="requerido_<?php echo $field['id']; ?>">Campo requerido</label>
                                                                 </div>
-                                                                
+
                                                                 <div class="d-grid gap-2">
                                                                     <button type="submit" class="btn btn-primary">Guardar cambios</button>
                                                                 </div>
@@ -344,7 +358,7 @@ $alert = getAlert();
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <!-- Modal de confirmación de eliminación -->
                                             <div class="modal fade" id="deleteModal<?php echo $field['id']; ?>" tabindex="-1" aria-labelledby="deleteModalLabel<?php echo $field['id']; ?>" aria-hidden="true">
                                                 <div class="modal-dialog">
@@ -382,10 +396,10 @@ $alert = getAlert();
             </div>
         </div>
     </div>
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- JavaScript personalizado -->
     <script src="<?php echo APP_URL; ?>/assets/js/script.js"></script>
 </body>

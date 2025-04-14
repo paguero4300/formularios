@@ -14,6 +14,12 @@ require_once '../includes/form.php';
 // Verificar autenticación
 requireAuth();
 
+// Verificar si el usuario es administrador
+$userId = Auth::id();
+$sqlAdmin = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+$userResult = fetchOne($sqlAdmin, [$userId]);
+$isAdmin = ($userResult && $userResult['username'] === 'admin');
+
 // Procesar acciones
 $action = $_GET['action'] ?? '';
 $submissionId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -269,11 +275,13 @@ $alert = getAlert();
                         <p class="text-center text-muted">No hay datos disponibles para este envío</p>
                         <?php endif; ?>
                     </div>
+                    <?php if ($isAdmin): ?>
                     <div class="card-footer">
                         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                             <i class="material-icons">delete</i> Eliminar envío
                         </button>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Modal de confirmación de eliminación -->
@@ -346,9 +354,11 @@ $alert = getAlert();
                                                 <a href="<?php echo APP_URL; ?>/admin/submissions.php?action=view&id=<?php echo $submission['id']; ?>" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Ver detalle">
                                                     <i class="material-icons">visibility</i>
                                                 </a>
+                                                <?php if ($isAdmin): ?>
                                                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal<?php echo $submission['id']; ?>" title="Eliminar">
                                                     <i class="material-icons">delete</i>
                                                 </button>
+                                                <?php endif; ?>
                                             </div>
 
                                             <!-- Modal de confirmación de eliminación -->

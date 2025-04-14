@@ -14,6 +14,12 @@ require_once '../includes/form.php';
 // Verificar autenticación
 requireAuth();
 
+// Verificar si el usuario es administrador
+$userId = Auth::id();
+$sqlAdmin = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+$userResult = fetchOne($sqlAdmin, [$userId]);
+$isAdmin = ($userResult && $userResult['username'] === 'admin');
+
 // Procesar acciones
 $action = $_GET['action'] ?? '';
 $formId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -450,11 +456,13 @@ $alert = getAlert();
                 <!-- Lista de formularios -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Formularios</h1>
+                    <?php if ($isAdmin): ?>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <a href="<?php echo APP_URL; ?>/admin/forms.php?action=create" class="btn btn-sm btn-primary">
                             <i class="material-icons">add</i> Nuevo formulario
                         </a>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Buscador -->
@@ -503,6 +511,7 @@ $alert = getAlert();
                                         <td><?php echo formatDate($form['fecha_creacion']); ?></td>
                                         <td>
                                             <div class="btn-group" role="group">
+                                                <?php if ($isAdmin): ?>
                                                 <a href="<?php echo APP_URL; ?>/admin/forms.php?action=edit&id=<?php echo $form['id']; ?>" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Editar">
                                                     <i class="material-icons">edit</i>
                                                 </a>
@@ -526,6 +535,12 @@ $alert = getAlert();
                                                         <i class="material-icons"><?php echo ($form['estado'] === 'activo') ? 'toggle_off' : 'toggle_on'; ?></i>
                                                     </button>
                                                 </form>
+                                                <?php else: ?>
+                                                <!-- Solo visualización para usuarios normales -->
+                                                <a href="<?php echo APP_URL; ?>/admin/submissions.php?form_id=<?php echo $form['id']; ?>" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Ver envíos">
+                                                    <i class="material-icons">visibility</i> Ver envíos
+                                                </a>
+                                                <?php endif; ?>
                                             </div>
 
                                             <!-- Modal de confirmación de eliminación -->
