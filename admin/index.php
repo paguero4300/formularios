@@ -15,6 +15,28 @@ require_once '../includes/form.php';
 // Verificar autenticación
 requireAuth();
 
+// Verificar si el usuario es administrador
+$userId = Auth::id();
+$conn = getDBConnection();
+$sql = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$result = $stmt->get_result();
+$isAdmin = false;
+
+if ($result->num_rows > 0) {
+    $user = $result->fetch_assoc();
+    $isAdmin = ($user['username'] === 'admin');
+}
+
+$stmt->close();
+
+// Si no es administrador, redirigir a la página de formularios
+if (!$isAdmin) {
+    redirect(APP_URL . '/admin/forms.php');
+}
+
 // Obtener estadísticas
 $conn = getDBConnection();
 
@@ -63,13 +85,13 @@ $alert = getAlert();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
+
     <!-- Estilos personalizados -->
     <link href="<?php echo APP_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
@@ -101,7 +123,7 @@ $alert = getAlert();
             </div>
         </div>
     </nav>
-    
+
     <!-- Contenido principal -->
     <div class="container-fluid">
         <div class="row">
@@ -109,7 +131,7 @@ $alert = getAlert();
             <div class="col-md-3 col-lg-2 sidebar">
                 <?php echo generateMenu('dashboard'); ?>
             </div>
-            
+
             <!-- Contenido -->
             <div class="col-md-9 col-lg-10 ms-sm-auto main-content">
                 <?php if ($alert): ?>
@@ -118,7 +140,7 @@ $alert = getAlert();
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 <?php endif; ?>
-                
+
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Dashboard</h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
@@ -129,7 +151,7 @@ $alert = getAlert();
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Tarjetas de estadísticas -->
                 <div class="row">
                     <div class="col-md-4">
@@ -163,7 +185,7 @@ $alert = getAlert();
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Envíos recientes -->
                 <div class="row mt-4">
                     <div class="col-md-6">
@@ -202,7 +224,7 @@ $alert = getAlert();
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Usuarios recientes -->
                     <div class="col-md-6">
                         <div class="card">
@@ -244,10 +266,10 @@ $alert = getAlert();
             </div>
         </div>
     </div>
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- JavaScript personalizado -->
     <script src="<?php echo APP_URL; ?>/assets/js/script.js"></script>
 </body>

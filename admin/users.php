@@ -14,6 +14,28 @@ require_once '../includes/user.php';
 // Verificar autenticación
 requireAuth();
 
+// Verificar si el usuario es administrador
+$userId = Auth::id();
+$conn = getDBConnection();
+$sql = "SELECT username FROM usuarios WHERE id = ? LIMIT 1";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$result = $stmt->get_result();
+$isAdmin = false;
+
+if ($result->num_rows > 0) {
+    $user = $result->fetch_assoc();
+    $isAdmin = ($user['username'] === 'admin');
+}
+
+$stmt->close();
+
+// Si no es administrador, redirigir a la página de formularios
+if (!$isAdmin) {
+    redirect(APP_URL . '/admin/forms.php');
+}
+
 // Procesar acciones
 $action = $_GET['action'] ?? '';
 $userId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -25,10 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setAlert('danger', 'Error de validación del formulario');
         redirect(APP_URL . '/admin/users.php');
     }
-    
+
     // Determinar la acción a realizar
     $formAction = $_POST['form_action'] ?? '';
-    
+
     switch ($formAction) {
         case 'create':
             // Crear nuevo usuario
@@ -38,16 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nombre_completo' => sanitize($_POST['nombre_completo'] ?? ''),
                 'estado' => sanitize($_POST['estado'] ?? 'activo')
             ];
-            
+
             // Validar datos
             if (empty($userData['username']) || empty($userData['password']) || empty($userData['nombre_completo'])) {
                 setAlert('danger', 'Todos los campos son obligatorios');
                 redirect(APP_URL . '/admin/users.php?action=create');
             }
-            
+
             // Crear usuario
             $result = User::create($userData);
-            
+
             if ($result) {
                 setAlert('success', 'Usuario creado correctamente');
                 redirect(APP_URL . '/admin/users.php');
@@ -56,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect(APP_URL . '/admin/users.php?action=create');
             }
             break;
-            
+
         case 'update':
             // Actualizar usuario existente
             $userId = (int)($_POST['user_id'] ?? 0);
@@ -65,16 +87,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'nombre_completo' => sanitize($_POST['nombre_completo'] ?? ''),
                 'estado' => sanitize($_POST['estado'] ?? 'activo')
             ];
-            
+
             // Validar datos
             if (empty($userData['username']) || empty($userData['nombre_completo'])) {
                 setAlert('danger', 'Todos los campos son obligatorios');
                 redirect(APP_URL . '/admin/users.php?action=edit&id=' . $userId);
             }
-            
+
             // Actualizar usuario
             $result = User::update($userId, $userData);
-            
+
             if ($result) {
                 setAlert('success', 'Usuario actualizado correctamente');
                 redirect(APP_URL . '/admin/users.php');
@@ -83,43 +105,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect(APP_URL . '/admin/users.php?action=edit&id=' . $userId);
             }
             break;
-            
+
         case 'delete':
             // Eliminar usuario
             $userId = (int)($_POST['user_id'] ?? 0);
-            
+
             // Eliminar usuario
             $result = User::delete($userId);
-            
+
             if ($result) {
                 setAlert('success', 'Usuario eliminado correctamente');
             } else {
                 setAlert('danger', 'Error al eliminar el usuario');
             }
-            
+
             redirect(APP_URL . '/admin/users.php');
             break;
-            
+
         case 'change_password':
             // Cambiar contraseña
             $userId = (int)($_POST['user_id'] ?? 0);
             $newPassword = $_POST['new_password'] ?? '';
             $confirmPassword = $_POST['confirm_password'] ?? '';
-            
+
             // Validar datos
             if (empty($newPassword) || empty($confirmPassword)) {
                 setAlert('danger', 'Todos los campos son obligatorios');
                 redirect(APP_URL . '/admin/users.php?action=change_password&id=' . $userId);
             }
-            
+
             if ($newPassword !== $confirmPassword) {
                 setAlert('danger', 'Las contraseñas no coinciden');
                 redirect(APP_URL . '/admin/users.php?action=change_password&id=' . $userId);
             }
-            
+
             // Cambiar contraseña
             $result = Auth::resetPassword($userId, $newPassword);
-            
+
             if ($result) {
                 setAlert('success', 'Contraseña cambiada correctamente');
                 redirect(APP_URL . '/admin/users.php');
@@ -128,21 +150,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect(APP_URL . '/admin/users.php?action=change_password&id=' . $userId);
             }
             break;
-            
+
         case 'change_status':
             // Cambiar estado
             $userId = (int)($_POST['user_id'] ?? 0);
             $newStatus = sanitize($_POST['estado'] ?? 'activo');
-            
+
             // Cambiar estado
             $result = User::changeStatus($userId, $newStatus);
-            
+
             if ($result) {
                 setAlert('success', 'Estado del usuario cambiado correctamente');
             } else {
                 setAlert('danger', 'Error al cambiar el estado del usuario');
             }
-            
+
             redirect(APP_URL . '/admin/users.php');
             break;
     }
@@ -157,38 +179,38 @@ switch ($action) {
     case 'create':
         // Mostrar formulario de creación
         break;
-        
+
     case 'edit':
         // Obtener datos del usuario a editar
         $user = User::getById($userId);
-        
+
         if (!$user) {
             setAlert('danger', 'Usuario no encontrado');
             redirect(APP_URL . '/admin/users.php');
         }
         break;
-        
+
     case 'change_password':
         // Obtener datos del usuario para cambiar contraseña
         $user = User::getById($userId);
-        
+
         if (!$user) {
             setAlert('danger', 'Usuario no encontrado');
             redirect(APP_URL . '/admin/users.php');
         }
         break;
-        
+
     default:
         // Listar usuarios
         $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
         $searchTerm = $_GET['search'] ?? '';
-        
+
         if (!empty($searchTerm)) {
             $result = User::search($searchTerm, $page);
         } else {
             $result = User::getAll($page);
         }
-        
+
         $users = $result['users'];
         $pagination = $result['pagination'];
         break;
@@ -203,13 +225,13 @@ $alert = getAlert();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Usuarios - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    
+
     <!-- Estilos personalizados -->
     <link href="<?php echo APP_URL; ?>/assets/css/style.css" rel="stylesheet">
 </head>
@@ -241,7 +263,7 @@ $alert = getAlert();
             </div>
         </div>
     </nav>
-    
+
     <!-- Contenido principal -->
     <div class="container-fluid">
         <div class="row">
@@ -249,7 +271,7 @@ $alert = getAlert();
             <div class="col-md-3 col-lg-2 sidebar">
                 <?php echo generateMenu('users'); ?>
             </div>
-            
+
             <!-- Contenido -->
             <div class="col-md-9 col-lg-10 ms-sm-auto main-content">
                 <?php if ($alert): ?>
@@ -258,7 +280,7 @@ $alert = getAlert();
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 <?php endif; ?>
-                
+
                 <?php if ($action === 'create'): ?>
                 <!-- Formulario de creación de usuario -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -269,28 +291,28 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <div class="card">
                     <div class="card-body">
                         <form method="POST" action="<?php echo APP_URL; ?>/admin/users.php">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             <input type="hidden" name="form_action" value="create">
-                            
+
                             <div class="mb-3">
                                 <label for="username" class="form-label">Nombre de usuario</label>
                                 <input type="text" class="form-control" id="username" name="username" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="password" class="form-label">Contraseña</label>
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="nombre_completo" class="form-label">Nombre completo</label>
                                 <input type="text" class="form-control" id="nombre_completo" name="nombre_completo" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="estado" class="form-label">Estado</label>
                                 <select class="form-select" id="estado" name="estado">
@@ -298,7 +320,7 @@ $alert = getAlert();
                                     <option value="inactivo">Inactivo</option>
                                 </select>
                             </div>
-                            
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="material-icons">save</i> Guardar
@@ -307,7 +329,7 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+
                 <?php elseif ($action === 'edit' && $user): ?>
                 <!-- Formulario de edición de usuario -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -318,24 +340,24 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <div class="card">
                     <div class="card-body">
                         <form method="POST" action="<?php echo APP_URL; ?>/admin/users.php">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             <input type="hidden" name="form_action" value="update">
                             <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                            
+
                             <div class="mb-3">
                                 <label for="username" class="form-label">Nombre de usuario</label>
                                 <input type="text" class="form-control" id="username" name="username" value="<?php echo $user['username']; ?>" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="nombre_completo" class="form-label">Nombre completo</label>
                                 <input type="text" class="form-control" id="nombre_completo" name="nombre_completo" value="<?php echo $user['nombre_completo']; ?>" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="estado" class="form-label">Estado</label>
                                 <select class="form-select" id="estado" name="estado">
@@ -343,7 +365,7 @@ $alert = getAlert();
                                     <option value="inactivo" <?php echo ($user['estado'] === 'inactivo') ? 'selected' : ''; ?>>Inactivo</option>
                                 </select>
                             </div>
-                            
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="material-icons">save</i> Guardar cambios
@@ -355,7 +377,7 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+
                 <?php elseif ($action === 'change_password' && $user): ?>
                 <!-- Formulario de cambio de contraseña -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -366,29 +388,29 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <div class="card">
                     <div class="card-body">
                         <form method="POST" action="<?php echo APP_URL; ?>/admin/users.php">
                             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                             <input type="hidden" name="form_action" value="change_password">
                             <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                            
+
                             <div class="mb-3">
                                 <label for="username" class="form-label">Usuario</label>
                                 <input type="text" class="form-control" id="username" value="<?php echo $user['username']; ?>" readonly>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="new_password" class="form-label">Nueva contraseña</label>
                                 <input type="password" class="form-control" id="new_password" name="new_password" required>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="confirm_password" class="form-label">Confirmar contraseña</label>
                                 <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                             </div>
-                            
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="material-icons">lock_reset</i> Cambiar contraseña
@@ -397,7 +419,7 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+
                 <?php else: ?>
                 <!-- Lista de usuarios -->
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -408,7 +430,7 @@ $alert = getAlert();
                         </a>
                     </div>
                 </div>
-                
+
                 <!-- Buscador -->
                 <div class="card mb-4">
                     <div class="card-body">
@@ -424,7 +446,7 @@ $alert = getAlert();
                         </form>
                     </div>
                 </div>
-                
+
                 <!-- Tabla de usuarios -->
                 <div class="card">
                     <div class="card-body">
@@ -464,7 +486,7 @@ $alert = getAlert();
                                                 <button type="button" class="btn btn-sm btn-outline-danger btn-delete" data-bs-toggle="modal" data-bs-target="#deleteModal<?php echo $user['id']; ?>" title="Eliminar">
                                                     <i class="material-icons">delete</i>
                                                 </button>
-                                                
+
                                                 <!-- Cambiar estado -->
                                                 <form method="POST" action="<?php echo APP_URL; ?>/admin/users.php" class="d-inline">
                                                     <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
@@ -476,7 +498,7 @@ $alert = getAlert();
                                                     </button>
                                                 </form>
                                             </div>
-                                            
+
                                             <!-- Modal de confirmación de eliminación -->
                                             <div class="modal fade" id="deleteModal<?php echo $user['id']; ?>" tabindex="-1" aria-labelledby="deleteModalLabel<?php echo $user['id']; ?>" aria-hidden="true">
                                                 <div class="modal-dialog">
@@ -506,7 +528,7 @@ $alert = getAlert();
                                 </tbody>
                             </table>
                         </div>
-                        
+
                         <!-- Paginación -->
                         <?php if ($pagination['total_pages'] > 1): ?>
                         <div class="mt-4">
@@ -521,7 +543,7 @@ $alert = getAlert();
                             ?>
                         </div>
                         <?php endif; ?>
-                        
+
                         <?php else: ?>
                         <p class="text-center text-muted">No se encontraron usuarios</p>
                         <?php endif; ?>
@@ -531,10 +553,10 @@ $alert = getAlert();
             </div>
         </div>
     </div>
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- JavaScript personalizado -->
     <script src="<?php echo APP_URL; ?>/assets/js/script.js"></script>
 </body>
