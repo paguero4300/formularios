@@ -191,7 +191,7 @@ function cleanupTestEnvironment() {
 // Función para simular una solicitud a la API
 function simulateApiRequest($endpoint, $method = 'GET', $data = null) {
     // Construir URL completa
-    $url = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/api/' . $endpoint;
+    $url = 'http://' . $_SERVER['HTTP_HOST'] . '/formularios/api/' . $endpoint;
 
     // Inicializar cURL
     $ch = curl_init();
@@ -199,6 +199,7 @@ function simulateApiRequest($endpoint, $method = 'GET', $data = null) {
     // Configurar opciones de cURL
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
     if ($method === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
