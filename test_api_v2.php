@@ -21,10 +21,10 @@ function logMessage($message, $type = 'info') {
         'warning' => 'orange',
         'info' => 'blue'
     ];
-    
+
     $color = isset($colors[$type]) ? $colors[$type] : 'black';
     echo "<p style='color: {$color};'>";
-    
+
     switch ($type) {
         case 'success':
             echo "✓ ";
@@ -39,26 +39,28 @@ function logMessage($message, $type = 'info') {
             echo "ℹ ";
             break;
     }
-    
+
     echo $message . "</p>";
 }
 
 // Función para simular una solicitud a la API
 function simulateApiRequest($endpoint, $method = 'GET', $data = null) {
-    // Construir URL completa con la ruta correcta
-    $url = 'http://' . $_SERVER['HTTP_HOST'] . '/api/' . $endpoint;
-    
+    // Construir URL completa con la ruta correcta y HTTPS
+    $url = 'https://' . $_SERVER['HTTP_HOST'] . '/api/' . $endpoint;
+
     // Inicializar cURL
     $ch = curl_init();
-    
+
     // Configurar opciones de cURL
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Desactivar verificación SSL para pruebas
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // Desactivar verificación de host para pruebas
+
     if ($method === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
-        
+
         if ($data !== null) {
             $jsonData = json_encode($data);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
@@ -68,17 +70,17 @@ function simulateApiRequest($endpoint, $method = 'GET', $data = null) {
             ]);
         }
     }
-    
+
     // Ejecutar la solicitud
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    
+
     // Cerrar cURL
     curl_close($ch);
-    
+
     // Decodificar respuesta JSON
     $decodedResponse = json_decode($response, true);
-    
+
     return [
         'http_code' => $httpCode,
         'response' => $decodedResponse,
@@ -89,13 +91,13 @@ function simulateApiRequest($endpoint, $method = 'GET', $data = null) {
 // Prueba simple de la API
 function testApi() {
     echo "<h2>Prueba de API</h2>";
-    
+
     // Probar get_forms.php
     echo "<h3>Prueba de get_forms.php</h3>";
     $result = simulateApiRequest("get_forms.php?user_id=1");
     echo "<p>Código HTTP: " . $result['http_code'] . "</p>";
     echo "<pre>" . htmlspecialchars(json_encode($result['response'], JSON_PRETTY_PRINT)) . "</pre>";
-    
+
     // Probar submit_form.php
     echo "<h3>Prueba de submit_form.php</h3>";
     $formData = [
@@ -108,7 +110,7 @@ function testApi() {
     $result = simulateApiRequest("submit_form.php", "POST", $formData);
     echo "<p>Código HTTP: " . $result['http_code'] . "</p>";
     echo "<pre>" . htmlspecialchars(json_encode($result['response'], JSON_PRETTY_PRINT)) . "</pre>";
-    
+
     // Probar get_submissions.php
     echo "<h3>Prueba de get_submissions.php</h3>";
     $result = simulateApiRequest("get_submissions.php?user_id=1");
@@ -175,18 +177,18 @@ function testApi() {
     <div class="nav">
         <a href="admin/index.php">Volver al Panel</a>
     </div>
-    
+
     <h1>Prueba de API v2</h1>
-    
+
     <div style="background-color: #e3f2fd; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
         <p>Esta prueba verifica que la API funciona correctamente con la configuración corregida.</p>
     </div>
-    
+
     <?php
     // Ejecutar prueba de API
     testApi();
     ?>
-    
+
     <div class="nav" style="margin-top: 30px;">
         <a href="admin/index.php">Volver al Panel</a>
     </div>
