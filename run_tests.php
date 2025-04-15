@@ -9,6 +9,14 @@ set_time_limit(120);
 
 // Establecer cabeceras
 header('Content-Type: text/html; charset=utf-8');
+
+// Definir constantes de ruta si no están definidas
+if (!defined('BASE_DIR')) {
+    define('BASE_DIR', __DIR__);
+}
+
+// Asegurarse de que el directorio de trabajo sea la raíz del proyecto
+chdir(__DIR__);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -82,18 +90,18 @@ header('Content-Type: text/html; charset=utf-8');
     <div class="nav">
         <a href="admin/index.php">Volver al Panel</a>
     </div>
-    
+
     <h1>Ejecutando Pruebas de Campos de Formulario</h1>
-    
+
     <div class="info">
         <p>Las pruebas crearán un formulario temporal y varios campos para validar la funcionalidad. Todo será eliminado automáticamente al finalizar.</p>
     </div>
-    
+
     <?php
     // Incluir y ejecutar las pruebas
     include_once 'tests/test_form_fields.php';
     ?>
-    
+
     <div class="nav">
         <a href="admin/index.php">Volver al Panel</a>
     </div>
