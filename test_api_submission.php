@@ -191,7 +191,7 @@ function cleanupTestEnvironment() {
 // Función para simular una solicitud a la API
 function simulateApiRequest($endpoint, $method = 'GET', $data = null) {
     // Construir URL completa
-    $url = 'http://' . $_SERVER['HTTP_HOST'] . '/formularios/api/' . $endpoint;
+    $url = 'http://' . $_SERVER['HTTP_HOST'] . '/api/' . $endpoint;
 
     // Inicializar cURL
     $ch = curl_init();
