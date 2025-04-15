@@ -10,6 +10,8 @@ Todos los endpoints están disponibles en:
 https://formulario.drsecuritygps.com
 ```
 
+**IMPORTANTE**: La API solo acepta conexiones seguras a través de HTTPS. Las solicitudes realizadas mediante HTTP serán redirigidas automáticamente a HTTPS, pero se recomienda usar directamente HTTPS en todas las solicitudes para evitar problemas de redirección.
+
 ## Autenticación
 
 ### Iniciar sesión
@@ -334,7 +336,7 @@ Los campos pueden tener propiedades adicionales según su tipo:
 
 5. **Filtrado**: Puedes filtrar los envíos por formulario específico utilizando el parámetro `form_id`.
 
-6. **Seguridad**: Todas las comunicaciones deben realizarse a través de HTTPS para garantizar la seguridad de los datos.
+6. **Seguridad**: Todas las comunicaciones deben realizarse a través de HTTPS para garantizar la seguridad de los datos. La API rechazará cualquier intento de conexión no segura.
 
 7. **Formato de respuesta**: Todas las APIs devuelven respuestas en formato JSON con un campo `success` que indica si la operación fue exitosa o no.
 
@@ -349,6 +351,43 @@ Los campos pueden tener propiedades adicionales según su tipo:
 4. **Validación**: Aunque el servidor valida los datos, es recomendable implementar validación también en el lado del cliente para mejorar la experiencia del usuario.
 
 5. **Caché**: Considera implementar un sistema de caché para los formularios, de modo que los usuarios puedan acceder a ellos incluso sin conexión a internet.
+
+6. **Certificados SSL**: Asegúrate de que tu aplicación Flutter esté configurada para confiar en los certificados SSL del servidor. Si estás usando un certificado autofirmado en desarrollo, deberás configurar tu aplicación para aceptarlo.
+
+### Ejemplo de configuración para HTTPS en Flutter
+
+```dart
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+// Para desarrollo (NO USAR EN PRODUCCIÓN)
+void configurarHttpInseguro() {
+  HttpOverrides.global = new MyHttpOverrides();
+}
+
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
+// Para producción, usa siempre HTTPS sin desactivar la verificación de certificados
+Future<http.Response> realizarSolicitud(String endpoint, {Map<String, dynamic>? body}) async {
+  final url = Uri.parse('https://formulario.drsecuritygps.com/api/$endpoint');
+
+  if (body != null) {
+    return await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+  } else {
+    return await http.get(url);
+  }
+}
+```
 
 ## Soporte
 
