@@ -52,13 +52,23 @@ foreach ($forms as $form) {
 
     // Incluir solo los campos necesarios
     foreach ($form['campos'] as $campo) {
-        $simplifiedForm['campos'][] = [
+        $campoData = [
             'id' => $campo['id'],
             'tipo_campo' => $campo['tipo_campo'],
             'etiqueta' => $campo['etiqueta'],
             'requerido' => $campo['requerido'],
             'orden' => $campo['orden']
         ];
+
+        // Incluir propiedades específicas del campo si existen
+        if (isset($campo['propiedades']) && !empty($campo['propiedades'])) {
+            $propiedades = json_decode($campo['propiedades'], true);
+            if (is_array($propiedades)) {
+                $campoData['propiedades'] = $propiedades;
+            }
+        }
+
+        $simplifiedForm['campos'][] = $campoData;
     }
 
     $simplifiedForms[] = $simplifiedForm;

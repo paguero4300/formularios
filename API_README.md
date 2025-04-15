@@ -16,8 +16,8 @@ https://formulario.drsecuritygps.com
 
 Permite a los usuarios autenticarse en el sistema.
 
-**Endpoint:** `/api/login.php`  
-**Método:** POST  
+**Endpoint:** `/api/login.php`
+**Método:** POST
 **Content-Type:** application/json
 
 **Parámetros (JSON):**
@@ -61,7 +61,7 @@ curl -X POST https://formulario.drsecuritygps.com/api/login.php \
 
 Obtiene los formularios disponibles para un usuario específico.
 
-**Endpoint:** `/api/get_forms.php`  
+**Endpoint:** `/api/get_forms.php`
 **Método:** GET
 
 **Parámetros (URL):**
@@ -79,31 +79,53 @@ Obtiene los formularios disponibles para un usuario específico.
       "campos": [
         {
           "id": 1,
-          "tipo_campo": "lugar",
-          "etiqueta": "Información del lugar",
+          "tipo_campo": "texto",
+          "etiqueta": "Nombre del cliente",
           "requerido": 1,
-          "orden": 1
+          "orden": 1,
+          "propiedades": {
+            "placeholder": "Ingrese el nombre completo",
+            "longitud_maxima": 100
+          }
         },
         {
           "id": 2,
           "tipo_campo": "fecha_hora",
-          "etiqueta": "Fecha y hora",
+          "etiqueta": "Fecha y hora de visita",
           "requerido": 1,
           "orden": 2
         },
         {
           "id": 3,
           "tipo_campo": "ubicacion_gps",
-          "etiqueta": "Ubicación GPS",
+          "etiqueta": "Ubicación del sitio",
           "requerido": 1,
           "orden": 3
         },
         {
           "id": 4,
-          "tipo_campo": "comentario",
-          "etiqueta": "Comentario",
+          "tipo_campo": "select",
+          "etiqueta": "Tipo de servicio",
           "requerido": 1,
-          "orden": 4
+          "orden": 4,
+          "propiedades": {
+            "opciones": [
+              {"valor": "instalacion", "texto": "Instalación"},
+              {"valor": "mantenimiento", "texto": "Mantenimiento"},
+              {"valor": "reparacion", "texto": "Reparación"}
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "tipo_campo": "textarea",
+          "etiqueta": "Observaciones",
+          "requerido": 0,
+          "orden": 5,
+          "propiedades": {
+            "placeholder": "Ingrese sus observaciones",
+            "longitud_maxima": 500
+          }
         }
       ]
     }
@@ -127,8 +149,8 @@ curl -X GET "https://formulario.drsecuritygps.com/api/get_forms.php?user_id=1"
 
 Permite enviar un formulario completado al servidor.
 
-**Endpoint:** `/api/submit_form.php`  
-**Método:** POST  
+**Endpoint:** `/api/submit_form.php`
+**Método:** POST
 **Content-Type:** application/json
 
 **Parámetros (JSON):**
@@ -137,10 +159,11 @@ Permite enviar un formulario completado al servidor.
   "form_id": 1,
   "user_id": 1,
   "data": {
-    "1": "Oficina Central",
+    "1": "Juan Pérez",
     "2": "2023-04-14 15:30:00",
     "3": "19.4326,-99.1332",
-    "4": "Inspección de rutina completada sin incidentes."
+    "4": "instalacion",
+    "5": "Instalación completada sin incidentes. Cliente satisfecho con el servicio."
   }
 }
 ```
@@ -195,7 +218,7 @@ curl -X POST https://formulario.drsecuritygps.com/api/submit_form.php \
 
 Obtiene los envíos de formularios según los permisos del usuario.
 
-**Endpoint:** `/api/get_submissions.php`  
+**Endpoint:** `/api/get_submissions.php`
 **Método:** GET
 
 **Parámetros (URL):**
@@ -250,10 +273,54 @@ curl -X GET "https://formulario.drsecuritygps.com/api/get_submissions.php?user_i
 
 El sistema soporta los siguientes tipos de campos para los formularios:
 
-1. **lugar**: Campo de texto para registrar la ubicación o lugar
-2. **fecha_hora**: Campo para registrar fecha y hora
-3. **ubicacion_gps**: Campo para registrar coordenadas GPS
-4. **comentario**: Campo de texto multilínea para observaciones o comentarios
+### Tipos esenciales
+1. **fecha_hora**: Campo para registrar fecha y hora (formato "YYYY-MM-DD HH:MM:SS")
+2. **ubicacion_gps**: Campo para registrar coordenadas GPS (formato "latitud,longitud")
+
+### Tipos dinámicos
+3. **texto**: Campo de texto simple para nombres, descripciones cortas, etc.
+4. **numero**: Campo numérico con validación de mínimo y máximo
+5. **textarea**: Campo de texto multilínea para comentarios extensos
+6. **select**: Lista desplegable con opciones predefinidas
+7. **checkbox**: Casillas de verificación para selección múltiple
+8. **radio**: Botones de opción para selección única
+9. **email**: Campo específico para correos electrónicos con validación
+10. **telefono**: Campo para números telefónicos con formato
+
+### Tipos heredados (para compatibilidad)
+11. **lugar**: Campo de texto para registrar la ubicación o lugar
+12. **comentario**: Campo de texto multilínea para observaciones o comentarios
+
+### Propiedades de los campos
+
+Los campos pueden tener propiedades adicionales según su tipo:
+
+- **texto, email, telefono, textarea**:
+  ```json
+  "propiedades": {
+    "placeholder": "Texto de ayuda",
+    "longitud_maxima": 100
+  }
+  ```
+
+- **numero**:
+  ```json
+  "propiedades": {
+    "min": 0,
+    "max": 100
+  }
+  ```
+
+- **select, checkbox, radio**:
+  ```json
+  "propiedades": {
+    "opciones": [
+      {"valor": "opcion1", "texto": "Opción 1"},
+      {"valor": "opcion2", "texto": "Opción 2"},
+      {"valor": "opcion3", "texto": "Opción 3"}
+    ]
+  }
+  ```
 
 ## Notas importantes
 

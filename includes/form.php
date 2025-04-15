@@ -228,15 +228,44 @@ class Form {
         $result = fetchOne($sql, [$data['id_formulario']]);
         $orden = ($result && isset($result['max_orden'])) ? $result['max_orden'] + 1 : 1;
 
+        // Preparar propiedades del campo según su tipo
+        $propiedades = isset($data['propiedades']) ? $data['propiedades'] : [];
+
+        // Propiedades por defecto según el tipo de campo
+        switch ($data['tipo_campo']) {
+            case 'select':
+            case 'checkbox':
+            case 'radio':
+                if (!isset($propiedades['opciones']) || !is_array($propiedades['opciones'])) {
+                    $propiedades['opciones'] = [];
+                }
+                break;
+            case 'numero':
+                if (!isset($propiedades['min'])) $propiedades['min'] = '';
+                if (!isset($propiedades['max'])) $propiedades['max'] = '';
+                break;
+            case 'texto':
+            case 'textarea':
+            case 'email':
+            case 'telefono':
+                if (!isset($propiedades['placeholder'])) $propiedades['placeholder'] = '';
+                if (!isset($propiedades['longitud_maxima'])) $propiedades['longitud_maxima'] = '';
+                break;
+        }
+
+        // Convertir propiedades a JSON
+        $propiedadesJson = json_encode($propiedades, JSON_UNESCAPED_UNICODE);
+
         // Insertar campo en la base de datos
-        $sql = "INSERT INTO campos_formulario (id_formulario, tipo_campo, etiqueta, requerido, orden)
-                VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO campos_formulario (id_formulario, tipo_campo, etiqueta, requerido, propiedades, orden)
+                VALUES (?, ?, ?, ?, ?, ?)";
 
         return insert($sql, [
             $data['id_formulario'],
             $data['tipo_campo'],
             $data['etiqueta'],
             $data['requerido'] ? 1 : 0,
+            $propiedadesJson,
             $data['orden'] ?? $orden
         ]);
     }
@@ -255,13 +284,47 @@ class Form {
             return false;
         }
 
+        // Preparar propiedades del campo
+        $propiedades = isset($data['propiedades']) ? $data['propiedades'] : [];
+
+        // Si no se proporcionaron propiedades nuevas, mantener las existentes
+        if (empty($propiedades) && isset($field['propiedades'])) {
+            $propiedades = json_decode($field['propiedades'], true) ?: [];
+        }
+
+        // Propiedades por defecto según el tipo de campo
+        switch ($data['tipo_campo']) {
+            case 'select':
+            case 'checkbox':
+            case 'radio':
+                if (!isset($propiedades['opciones']) || !is_array($propiedades['opciones'])) {
+                    $propiedades['opciones'] = [];
+                }
+                break;
+            case 'numero':
+                if (!isset($propiedades['min'])) $propiedades['min'] = '';
+                if (!isset($propiedades['max'])) $propiedades['max'] = '';
+                break;
+            case 'texto':
+            case 'textarea':
+            case 'email':
+            case 'telefono':
+                if (!isset($propiedades['placeholder'])) $propiedades['placeholder'] = '';
+                if (!isset($propiedades['longitud_maxima'])) $propiedades['longitud_maxima'] = '';
+                break;
+        }
+
+        // Convertir propiedades a JSON
+        $propiedadesJson = json_encode($propiedades, JSON_UNESCAPED_UNICODE);
+
         // Actualizar campo en la base de datos
-        $sql = "UPDATE campos_formulario SET tipo_campo = ?, etiqueta = ?, requerido = ?, orden = ? WHERE id = ?";
+        $sql = "UPDATE campos_formulario SET tipo_campo = ?, etiqueta = ?, requerido = ?, propiedades = ?, orden = ? WHERE id = ?";
 
         $result = update($sql, [
             $data['tipo_campo'],
             $data['etiqueta'],
             $data['requerido'] ? 1 : 0,
+            $propiedadesJson,
             $data['orden'],
             $fieldId
         ]);
@@ -516,6 +579,139 @@ class Form {
         return insert($sql, [
             $data['id_formulario'],
             $data['id_usuario'],
+            $jsonData
+        ]);
+    }
+
+    /**
+     * Procesa y valida un envío de formulario
+     *
+     * @param array $data Datos del envío
+     * @return int|bool ID del envío creado o false si hubo un error
+     */
+    public static function submitForm($data) {
+        // Verificar si el formulario existe
+        $form = self::getById($data['form_id']);
+        if (!$form) {
+            return false;
+        }
+
+        // Verificar si el usuario existe
+        $sql = "SELECT id FROM usuarios WHERE id = ? LIMIT 1";
+        $user = fetchOne($sql, [$data['user_id']]);
+        if (!$user) {
+            return false;
+        }
+
+        // Validar datos del formulario
+        $fields = self::getFields($data['form_id']);
+        $formData = $data['data'] ?? [];
+        $errors = [];
+
+        foreach ($fields as $field) {
+            $fieldId = $field['id'];
+            $value = $formData[$fieldId] ?? null;
+            $propiedades = isset($field['propiedades']) ? json_decode($field['propiedades'], true) : [];
+
+            // Verificar campos requeridos
+            if ($field['requerido'] && empty($value) && $value !== '0' && $value !== 0) {
+                $errors[] = "El campo '{$field['etiqueta']}' es requerido";
+                continue;
+            }
+
+            // Validar formato según tipo de campo
+            if (!empty($value)) {
+                switch ($field['tipo_campo']) {
+                    case 'fecha_hora':
+                        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value)) {
+                            $errors[] = "El campo '{$field['etiqueta']}' debe tener formato de fecha y hora válido (YYYY-MM-DD HH:MM:SS)";
+                        }
+                        break;
+                    case 'ubicacion_gps':
+                        if (!preg_match('/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/', $value)) {
+                            $errors[] = "El campo '{$field['etiqueta']}' debe contener coordenadas GPS válidas";
+                        }
+                        break;
+                    case 'email':
+                        if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                            $errors[] = "El campo '{$field['etiqueta']}' debe ser un correo electrónico válido";
+                        }
+                        break;
+                    case 'numero':
+                        if (!is_numeric($value)) {
+                            $errors[] = "El campo '{$field['etiqueta']}' debe ser un número válido";
+                        } else {
+                            // Validar mínimo y máximo si están definidos
+                            if (!empty($propiedades['min']) && $value < $propiedades['min']) {
+                                $errors[] = "El campo '{$field['etiqueta']}' debe ser mayor o igual a {$propiedades['min']}";
+                            }
+                            if (!empty($propiedades['max']) && $value > $propiedades['max']) {
+                                $errors[] = "El campo '{$field['etiqueta']}' debe ser menor o igual a {$propiedades['max']}";
+                            }
+                        }
+                        break;
+                    case 'telefono':
+                        // Validación básica de teléfono (puede personalizarse según el formato deseado)
+                        if (!preg_match('/^[0-9\+\-\(\)\s]+$/', $value)) {
+                            $errors[] = "El campo '{$field['etiqueta']}' debe ser un número de teléfono válido";
+                        }
+                        break;
+                    case 'select':
+                        // Verificar que el valor esté entre las opciones válidas
+                        if (!empty($propiedades['opciones'])) {
+                            $opciones = $propiedades['opciones'];
+                            $valoresValidos = array_column($opciones, 'valor');
+                            if (!in_array($value, $valoresValidos)) {
+                                $errors[] = "El valor seleccionado para '{$field['etiqueta']}' no es válido";
+                            }
+                        }
+                        break;
+                    case 'checkbox':
+                    case 'radio':
+                        // Para checkbox, el valor puede ser un array de valores seleccionados
+                        if ($field['tipo_campo'] === 'checkbox' && is_array($value)) {
+                            if (!empty($propiedades['opciones'])) {
+                                $opciones = $propiedades['opciones'];
+                                $valoresValidos = array_column($opciones, 'valor');
+                                foreach ($value as $val) {
+                                    if (!in_array($val, $valoresValidos)) {
+                                        $errors[] = "Uno de los valores seleccionados para '{$field['etiqueta']}' no es válido";
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        // Para radio, el valor debe ser uno de los valores válidos
+                        else if ($field['tipo_campo'] === 'radio') {
+                            if (!empty($propiedades['opciones'])) {
+                                $opciones = $propiedades['opciones'];
+                                $valoresValidos = array_column($opciones, 'valor');
+                                if (!in_array($value, $valoresValidos)) {
+                                    $errors[] = "El valor seleccionado para '{$field['etiqueta']}' no es válido";
+                                }
+                            }
+                        }
+                        break;
+                }
+            }
+        }
+
+        if (!empty($errors)) {
+            // Guardar errores en una variable global o de sesión para mostrarlos
+            $_SESSION['form_errors'] = $errors;
+            return false;
+        }
+
+        // Convertir datos a formato JSON
+        $jsonData = json_encode($formData, JSON_UNESCAPED_UNICODE);
+
+        // Insertar envío en la base de datos
+        $sql = "INSERT INTO envios_formulario (id_formulario, id_usuario, datos)
+                VALUES (?, ?, ?)";
+
+        return insert($sql, [
+            $data['form_id'],
+            $data['user_id'],
             $jsonData
         ]);
     }
