@@ -849,5 +849,51 @@ class Form {
 
         return fetchAll($sql, [$formId]);
     }
+
+    /**
+     * Reordena los campos de un formulario
+     *
+     * @param int $formId ID del formulario
+     * @param array $fieldOrder Array con los IDs de los campos en el nuevo orden
+     * @return bool True si la reordenación fue exitosa, false en caso contrario
+     */
+    public static function reorderFields($formId, $fieldOrder) {
+        // Verificar si el formulario existe
+        $form = self::getById($formId);
+        if (!$form) {
+            return false;
+        }
+
+        // Verificar que todos los campos pertenezcan al formulario
+        $fields = self::getFields($formId);
+        $formFieldIds = array_column($fields, 'id');
+
+        foreach ($fieldOrder as $fieldId) {
+            if (!in_array($fieldId, $formFieldIds)) {
+                return false; // Un campo no pertenece a este formulario
+            }
+        }
+
+        // Actualizar el orden de los campos
+        $conn = getDBConnection();
+        $conn->begin_transaction();
+
+        try {
+            foreach ($fieldOrder as $index => $fieldId) {
+                $orden = $index + 1;
+                $sql = "UPDATE campos_formulario SET orden = ? WHERE id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("ii", $orden, $fieldId);
+                $stmt->execute();
+                $stmt->close();
+            }
+
+            $conn->commit();
+            return true;
+        } catch (Exception $e) {
+            $conn->rollback();
+            return false;
+        }
+    }
 }
 ?>
